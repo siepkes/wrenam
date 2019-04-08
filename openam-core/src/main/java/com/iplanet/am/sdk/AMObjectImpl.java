@@ -32,6 +32,7 @@ package com.iplanet.am.sdk;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -39,12 +40,10 @@ import java.util.StringTokenizer;
 import java.util.TreeSet;
 
 import com.iplanet.am.sdk.common.IDirectoryServices;
-import com.iplanet.dpro.session.SessionException;
-import com.iplanet.dpro.session.SessionID;
-import com.iplanet.dpro.session.service.SessionService;
 import com.iplanet.sso.SSOException;
 import com.iplanet.sso.SSOToken;
 import com.iplanet.sso.SSOTokenID;
+import com.iplanet.sso.SSOTokenListenersUnsupportedException;
 import com.iplanet.sso.SSOTokenManager;
 import com.iplanet.ums.SearchControl;
 import com.sun.identity.common.DNUtils;
@@ -55,12 +54,7 @@ import com.sun.identity.sm.SchemaType;
 import com.sun.identity.sm.ServiceConfig;
 import com.sun.identity.sm.ServiceSchema;
 import com.sun.identity.sm.ServiceSchemaManager;
-import org.forgerock.guava.common.cache.CacheBuilder;
-import org.forgerock.guava.common.cache.CacheLoader;
-import org.forgerock.guava.common.cache.LoadingCache;
-import org.forgerock.guice.core.InjectorHolder;
 import org.forgerock.i18n.LocalizedIllegalArgumentException;
-import org.forgerock.openam.cts.continuous.watching.SessionWatchingNotSupported;
 import org.forgerock.openam.ldap.LDAPUtils;
 import org.forgerock.opendj.ldap.DN;
 import org.forgerock.opendj.ldap.LDAPUrl;
@@ -113,6 +107,13 @@ class AMObjectImpl implements AMObject {
      * notifications for that DN.
      */
     private static Map objImplListeners = new HashMap();
+
+    /**
+     * Hash table used to keep track of elements that need to be removed from
+     * objImplListeners table when a SSOToken is no longer valid. The key is
+     * SSOTokenId & the value is a Set of DN's.
+     */
+    protected static Hashtable profileNameTable = new Hashtable();
 
     protected static Debug debug = AMCommonUtils.debug;
 
@@ -2205,16 +2206,18 @@ class AMObjectImpl implements AMObject {
 
     /**
      * This method removes the entry corresponding to SSOTokenID supplied.
-     *
+     * 
      * @return Set of DN's for the given SSOTokenID or null if not present
      *         <p>
-     *
+     * 
      * @param ssoToken -
      *            a SSOToken
-     *
+     * 
      */
     protected static Set removeFromProfileNameTable(SSOToken ssoToken) {
-        if (ProfileNameTable.INSTANCE.isEmpty()) {
+        Hashtable pTable = profileNameTable;
+
+        if ((pTable == null) || (pTable.isEmpty())) {
             return null;
         }
 
@@ -2223,22 +2226,25 @@ class AMObjectImpl implements AMObject {
                     + "removeFromProfilefNameTable(SSOTokenID)..");
         }
 
-        Set<String> dnList;
+        Set dnList = null;
 
-        synchronized (ProfileNameTable.INSTANCE) {
+        synchronized (pTable) {
             String principal;
 
             // Check if the entry exists corresponding to this session
             try {
                 principal = ssoToken.getPrincipal().getName();
             } catch (SSOException ssoe) {
-                debug.error("AMObjectImpl.removeFromProfileNameTable(): Could not update PFN table");
+                debug.error("AMObjectImpl.removeFromProfileNameTable(): "
+                        + "Could not update PFN table");
+
                 return null;
             }
 
-            dnList = ProfileNameTable.INSTANCE.get(principal);
-            ProfileNameTable.INSTANCE.remove(principal);
+            dnList = (Set) pTable.remove(principal);
         }
+
+        // Note dnList could be null if there was no key with ssoTokenID
         return dnList;
     }
 
@@ -3271,64 +3277,10 @@ class AMObjectImpl implements AMObject {
     }
 
     /**
-     * Enum containing cache used to keep track of elements that need to be removed from
-     * objImplListeners table when a SSOToken is no longer valid. The key is SSOTokenId & the
-     * value is a Set of DN's.
-     */
-    enum ProfileNameTable {
-        INSTANCE;
-
-        private final SessionService sessionService;
-        private final AMSSOTokenListener listener = new AMSSOTokenListener();
-        private final LoadingCache<String, Set<String>> cache = CacheBuilder.newBuilder()
-                .maximumSize(100)
-                .build(new CacheLoader<String, Set<String>>() {
-                    @Override
-                    public Set<String> load(String principalName) throws Exception {
-                        return new HashSet<>();
-                    }
-                });
-
-        ProfileNameTable() {
-            sessionService = InjectorHolder.getInstance(SessionService.class);
-            try {
-                sessionService.registerListener(listener);
-            } catch (SessionWatchingNotSupported e) {
-                debug.message("AMObjectImpl.addToProfileNameTable: {}", e.getMessage());
-            }
-        }
-
-        private Set<String> get(String principalName) {
-            return cache.getUnchecked(principalName);
-        }
-
-        private void put(String ssoTokenId, String principalName, Set<String> dnList) {
-            try {
-                sessionService.notifyListenerFor(new SessionID(ssoTokenId), listener);
-                cache.put(principalName, dnList);
-            } catch (SessionWatchingNotSupported | SessionException ex) {
-                debug.message("AMObjectImpl.addToProfileNameTable: {}", ex.getMessage());
-            }
-        }
-
-        private boolean isEmpty() {
-            return cache.asMap().isEmpty();
-        }
-
-        private void remove(String principalName) {
-            cache.invalidate(principalName);
-        }
-
-        Set<String> keys() {
-            return cache.asMap().keySet();
-        }
-    }
-
-    /**
      * Adds a "dn"(value) entry to the ProfileName table corresponding to the
      * SSOTokenID (key). If no entry exists for the given SSOTokenID the creates
      * a new ent and adds a new SSOTokenListener for the SSOTokenID
-     *
+     * 
      * @param ssoToken -
      *            a SSOToken
      * @param dn -
@@ -3341,9 +3293,25 @@ class AMObjectImpl implements AMObject {
                     + "addToProfileNameTable(SSOToken,dn)..");
         }
 
-        synchronized (ProfileNameTable.INSTANCE) {
-            Set<String> dnList = ProfileNameTable.INSTANCE.get(ssoToken.getPrincipal().getName());
-            ProfileNameTable.INSTANCE.put(ssoToken.getTokenID().toString(), ssoToken.getPrincipal().getName(), dnList);
+        Hashtable pTable = profileNameTable;
+
+        synchronized (pTable) {
+            // Check if the entry exists corresponding to this session
+            Set dnList = (Set) pTable.get(ssoToken.getPrincipal().getName());
+
+            if (dnList == null) {
+                // No entry corressponding to session
+                // Add a new SSOTokenListener
+                AMSSOTokenListener ssoTokenListener = new AMSSOTokenListener(ssoToken.getPrincipal().getName());
+                try {
+                    ssoToken.addSSOTokenListener(ssoTokenListener);
+                } catch (SSOTokenListenersUnsupportedException ex) {
+                    debug.message("AMObjectImpl.addToProfileNameTable: {}", ex.getMessage());
+                }
+                dnList = new HashSet();
+                pTable.put(ssoToken.getPrincipal().getName(), dnList);
+            }
+
             dnList.add(dn);
         }
     }
@@ -3418,13 +3386,14 @@ class AMObjectImpl implements AMObject {
     /**
      * Removes the entry corresponding to given SSO token and distinguished name
      * from the profile name table.
-     *
+     * 
      * @param ssoToken
      *            Single-Sign-On Token.
      * @param dn
      *            distinguished name.
      */
-    private static void removeFromProfileNameTable(SSOToken ssoToken, String dn) {
+    private static void removeFromProfileNameTable(SSOToken ssoToken, String dn)
+    {
         // Remove the dn from the profileNameTable corresponding to
         // this session.
         if (debug.messageEnabled()) {
@@ -3432,28 +3401,34 @@ class AMObjectImpl implements AMObject {
                     + "removeFromProfileNameTable(SSOToken,dn)..");
         }
 
-        if (ProfileNameTable.INSTANCE.isEmpty()) {
+        Hashtable pTable = profileNameTable;
+
+        if ((pTable == null) || pTable.isEmpty()) {
             return; // Silent return;
         }
 
-        synchronized (ProfileNameTable.INSTANCE) {
+        synchronized (pTable) {
             String principal;
 
             // Check if the entry exists corresponding to this session
             try {
                 principal = ssoToken.getPrincipal().getName();
             } catch (SSOException ssoe) {
-                debug.error("AMObjectImpl.removeFromProfileNameTable(): Could not update PFN table");
+                debug.error("AMObjectImpl.removeFromProfileNameTable(): "
+                        + "Could not update PFN table");
+
                 return;
             }
 
-            Set<String> dnList = ProfileNameTable.INSTANCE.get(principal);
+            Set dnList = (Set) pTable.get(principal);
 
-            if (!dnList.isEmpty()) {
+            if (dnList != null) {
                 dnList.remove(dn);
 
                 if (dnList.isEmpty()) {
-                    ProfileNameTable.INSTANCE.remove(principal);
+                    // Do we need to remove the PSSOTokenListner added here?
+                    // How?
+                    pTable.remove(principal);
                 }
             }
         }

@@ -26,6 +26,7 @@ package org.forgerock.openam.upgrade;
 
 import static java.nio.file.Files.copy;
 
+import java.util.LinkedList;
 import javax.annotation.Nonnull;
 import javax.servlet.ServletContext;
 import java.io.BufferedWriter;
@@ -47,12 +48,20 @@ import com.sun.identity.setup.AMSetupUtils;
 import com.sun.identity.setup.EmbeddedOpenDS;
 import com.sun.identity.setup.SetupConstants;
 import com.sun.identity.shared.debug.Debug;
+import org.forgerock.openam.ldap.LDAPRequests;
 import org.forgerock.openam.utils.IOUtils;
 import org.forgerock.openam.utils.StringUtils;
-import org.forgerock.opendj.ldap.Dn;
-import org.forgerock.opendj.ldif.Ldif;
-import org.forgerock.opendj.ldif.LdifEntryReader;
-import org.forgerock.opendj.ldif.LdifEntryWriter;
+import org.forgerock.opendj.ldap.Attribute;
+import org.forgerock.opendj.ldap.ByteString;
+import org.forgerock.opendj.ldap.DN;
+import org.forgerock.opendj.ldap.Entry;
+import org.forgerock.opendj.ldap.SearchScope;
+import org.forgerock.opendj.ldap.requests.SearchRequest;
+import org.forgerock.opendj.ldif.EntryReader;
+import org.forgerock.opendj.ldif.LDIF;
+import org.forgerock.opendj.ldif.LDIFEntryReader;
+import org.forgerock.opendj.ldif.LDIFEntryWriter;
+import org.forgerock.opendj.server.embedded.EmbeddedDirectoryServerException;
 import org.forgerock.util.annotations.VisibleForTesting;
 import org.opends.server.core.LockFileManager;
 
@@ -240,8 +249,8 @@ public class OpenDJUpgrader {
         restoreFile("config/java.properties");
 
         // Rebuild all indexes for all local DB backends.
-        final List<Dn> baseDNs = EmbeddedOpenDS.findBackendsBaseDNs();
-        for (final Dn baseDN : baseDNs) {
+        final List<DN> baseDNs = EmbeddedOpenDS.findBackendsBaseDNs();
+        for (final DN baseDN : baseDNs) {
             rebuildAllIndexes(baseDN);
         }
 
@@ -311,13 +320,13 @@ public class OpenDJUpgrader {
         }
     }
 
-    private List<Dn> findBaseDNs() throws IOException {
-        final List<Dn> baseDNs = new LinkedList<Dn>();
+    private List<DN> findBaseDNs() throws IOException {
+        final List<DN> baseDNs = new LinkedList<DN>();
         final SearchRequest request = LDAPRequests.newSearchRequest("cn=backends,cn=config", SearchScope.WHOLE_SUBTREE,
                 "(objectclass=ds-cfg-backend)", "ds-cfg-base-dn");
 
-        try (LdifEntryReader reader = new LdifEntryReader(new FileInputStream(installRoot + "/config/config.ldif"))) {
-            final EntryReader filteredReader = Ldif.search(reader, request);
+        try (LDIFEntryReader reader = new LDIFEntryReader(new FileInputStream(installRoot + "/config/config.ldif"))) {
+            final EntryReader filteredReader = LDIF.search(reader, request);
 
             while (filteredReader.hasNext()) {
                 final Entry entry = filteredReader.readEntry();
@@ -325,7 +334,7 @@ public class OpenDJUpgrader {
 
                 if (values != null) {
                     for (final ByteString value : values) {
-                        baseDNs.add(Dn.valueOf(value.toString()));
+                        baseDNs.add(DN.valueOf(value.toString()));
                     }
                 }
             }
@@ -390,14 +399,14 @@ public class OpenDJUpgrader {
             InputStream currentConfig = new FileInputStream(getBackupFileName("config/config.ldif"));
             OutputStream newCurrentConfig = new FileOutputStream(installRoot + "/config/config.ldif")) {
 
-            final LdifEntryReader defaultCurrentConfigReader = new LdifEntryReader(defaultCurrentConfig);
-            final LdifEntryReader defaultNewConfigReader = new LdifEntryReader(defaultNewConfig);
-            final LdifEntryReader currentConfigReader = new LdifEntryReader(currentConfig);
-            final LdifEntryWriter newConfigWriter = new LdifEntryWriter(newCurrentConfig);
+            final LDIFEntryReader defaultCurrentConfigReader = new LDIFEntryReader(defaultCurrentConfig);
+            final LDIFEntryReader defaultNewConfigReader = new LDIFEntryReader(defaultNewConfig);
+            final LDIFEntryReader currentConfigReader = new LDIFEntryReader(currentConfig);
+            final LDIFEntryWriter newConfigWriter = new LDIFEntryWriter(newCurrentConfig);
 
-            Ldif.copyTo(
-                    Ldif.patch(currentConfigReader,
-                            Ldif.diff(defaultCurrentConfigReader, defaultNewConfigReader)),
+            LDIF.copyTo(
+                    LDIF.patch(currentConfigReader,
+                            LDIF.diff(defaultCurrentConfigReader, defaultNewConfigReader)),
                     newConfigWriter);
             newConfigWriter.flush();
             message("done");
@@ -471,7 +480,7 @@ public class OpenDJUpgrader {
         }
     }
 
-    private void rebuildAllIndexes(final Dn baseDN) throws EmbeddedDirectoryServerException {
+    private void rebuildAllIndexes(final DN baseDN) throws EmbeddedDirectoryServerException {
         String base = baseDN.toString();
         message("Rebuilding indexes for suffix \"" + base + "\"...");
         try {

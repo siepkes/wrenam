@@ -17,10 +17,10 @@ package org.forgerock.openam.authentication.modules.oidc;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
-import org.forgerock.jaspi.modules.openid.exceptions.FailedToLoadJWKException;
 import org.forgerock.jaspi.modules.openid.resolvers.OpenIdResolverFactory;
 import org.forgerock.jaspi.modules.openid.resolvers.OpenIdResolver;
 
+import org.forgerock.json.jose.exceptions.FailedToLoadJWKException;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 

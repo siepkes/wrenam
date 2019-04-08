@@ -135,7 +135,6 @@ import com.sun.identity.idm.AMIdentityRepository;
 import com.sun.identity.idm.IdConstants;
 import com.sun.identity.idm.IdRepoException;
 import com.sun.identity.idm.IdType;
-import com.sun.identity.monitoring.MonitoringManager;
 import com.sun.identity.policy.PolicyException;
 import com.sun.identity.security.AdminTokenAction;
 import com.sun.identity.security.DecodeAction;
@@ -155,20 +154,6 @@ import com.sun.identity.sm.ServiceConfigManager;
 import com.sun.identity.sm.ServiceManager;
 import com.sun.identity.sm.ServiceSchema;
 import com.sun.identity.sm.ServiceSchemaManager;
-import org.apache.commons.lang.StringUtils;
-import org.forgerock.guava.common.base.Joiner;
-import org.forgerock.guice.core.InjectorHolder;
-import org.forgerock.openam.license.License;
-import org.forgerock.openam.license.LicenseLocator;
-import org.forgerock.openam.license.LicenseSet;
-import org.forgerock.openam.license.ServletContextLicenseLocator;
-import org.forgerock.openam.setup.EmbeddedOpenDJManager;
-import org.forgerock.openam.setup.ZipUtils;
-import org.forgerock.openam.upgrade.EmbeddedOpenDJBackupManager;
-import org.forgerock.openam.upgrade.OpenDJUpgrader;
-import org.forgerock.openam.upgrade.VersionUtils;
-import org.forgerock.openam.utils.AMKeyProvider;
-import org.forgerock.openam.utils.CollectionUtils;
 import org.forgerock.opendj.server.embedded.EmbeddedDirectoryServerException;
 
 /**

@@ -71,7 +71,7 @@ import org.forgerock.opendj.ldap.Attribute;
 import org.forgerock.opendj.ldap.Attributes;
 import org.forgerock.opendj.ldap.ByteString;
 import org.forgerock.opendj.ldap.Connection;
-import org.forgerock.opendj.ldap.Dn;
+import org.forgerock.opendj.ldap.DN;
 import org.forgerock.opendj.ldap.Modification;
 import org.forgerock.opendj.ldap.ModificationType;
 import org.forgerock.opendj.ldap.requests.ModifyRequest;
@@ -501,14 +501,14 @@ public class EmbeddedOpenDS {
         return str;
     }
 
-    public static List<Dn> findBackendsBaseDNs() throws Exception {
-        final List<Dn> baseDNs = new LinkedList<>();
+    public static List<DN> findBackendsBaseDNs() throws Exception {
+        final List<DN> baseDNs = new LinkedList<>();
         RootCfgClient rootConfig = openDJ.getConfiguration().getRootConfiguration();
         for (String backend : rootConfig.listBackends()) {
             BackendCfgClient backendConfig = rootConfig.getBackend(backend);
             if (backendConfig instanceof PluggableBackendCfgClient) {
                 PluggableBackendCfgClient config = (PluggableBackendCfgClient) backendConfig;
-                baseDNs.addAll(config.getBaseDn());
+                baseDNs.addAll(config.getBaseDN());
             }
         }
         return baseDNs;
@@ -615,7 +615,7 @@ public class EmbeddedOpenDS {
      * Synchronizes replication domain info with current list of OpenAM servers.
      */
     public static boolean syncReplicatedServerList(Set currServerSet) {
-        try (Connection conn = openDJ.getInternalConnection(Dn.valueOf(bindDn))) {
+        try (Connection conn = openDJ.getInternalConnection(DN.valueOf(bindDn))) {
             Set<String> dsServers = getReplicatedServers(conn);
 
             if (dsServers == null) {

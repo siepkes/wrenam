@@ -100,7 +100,7 @@ public final class LdifUtils {
     public static void createSchemaFromLDIF(LDIFChangeRecordReader ldif, final Connection ld) throws IOException {
         while (ldif.hasNext()) {
             final ChangeRecord changeRecord = ldif.readChangeRecord();
-            changeRecord.accept(new ChangeRecordVisitor<Void, Void, NeverThrowsException>() {
+            changeRecord.accept(new ChangeRecordVisitor<Void, Void>() {
                 @Override
                 public Void visitChangeRecord(Void aVoid, AddRequest change) {
                     try {

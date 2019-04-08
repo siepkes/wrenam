@@ -16,10 +16,11 @@
 
 package org.forgerock.openam.authentication.modules.oidc;
 
-import org.forgerock.jaspi.modules.openid.exceptions.FailedToLoadJWKException;
 import org.forgerock.jaspi.modules.openid.resolvers.OpenIdResolver;
 
 import java.net.URL;
+import org.forgerock.json.jose.exceptions.FailedToLoadJWKException;
+
 
 /**
  * Interface consumed by the OpenIdConnect authN module. It provides thread-safe access and creation to OpenIdResolver
@@ -50,5 +51,5 @@ public interface OpenIdResolverCache {
      *         IllegalArgumentException if the cryptoContextType specification is unknown
      */
     OpenIdResolver createResolver(String issuerFromJwk, String cryptoContextType, String cryptoContextValue, URL cryptoContextValueUrl)
-            throws FailedToLoadJWKException;
+				throws FailedToLoadJWKException;
 }

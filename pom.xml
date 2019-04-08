@@ -115,16 +115,16 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Version Properties -->
-        <opendj.server.version>4.0.0-M3</opendj.server.version>
-        <opendj.sdk.version>4.0.0-M3</opendj.sdk.version>
-        <opendj.server.legacy>4.0.0-M3</opendj.server.legacy>
+        <opendj.server.version>3.5.1</opendj.server.version>
+        <opendj.sdk.version>3.5.1</opendj.sdk.version>
+        <opendj.server.legacy>3.5.1</opendj.server.legacy>
 
         <!-- Supress checkstyle errors on legacy com.iplanet and com.sun.identity packages -->
         <checkstyleUnitTestSuppressionsLocation>checkstyle/suppressions.xml</checkstyleUnitTestSuppressionsLocation>
 
         <forgerock.bloomfilter.version>1.0.1</forgerock.bloomfilter.version>
-        <forgerock.ui.version>16.0.4</forgerock.ui.version>
-        <forgerock.guice.version>2.0.2</forgerock.guice.version>
+        <forgerock.ui.version>16.0.0</forgerock.ui.version>
+        <forgerock.guice.version>2.0.0</forgerock.guice.version>
 
         <javadoc-utils.version>1.0.0</javadoc-utils.version>
         <ant.contrib.version>1.0b3</ant.contrib.version>
@@ -2166,8 +2166,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <!-- Local build for MSHADE-237 and MSHADE-182 -->
-                    <version>3.0.0-forgerock-alpha-1</version>
+                    <version>3.0.0</version>
                 </plugin>
                 <plugin>
                     <groupId>net.ju-n.maven.plugins</groupId>
